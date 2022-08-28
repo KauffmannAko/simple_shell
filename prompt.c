@@ -1,23 +1,89 @@
 #include "main.h"
 
 /**
- * read_line - reads the command line
- * Return: line
+ * sig_handler - checks if Ctrl C is pressed
+ * @sig_num: int
+ */
+void sig_handler(int sig_num)
+{
+	if (sig_num == SIGINT)
+	{
+		_puts("$ ");
+	}
+}
+
+/**
+* _EOF - handles the End of File
+* @len: return value of getline function
+* @buff: buffer
+ */
+void _EOF(int len, char *buff)
+{
+	(void)buff;
+	if (len == -1)
+	{
+		if (isatty(STDIN_FILENO))
+		{
+			_puts("\n");
+			free(buff);
+		}
+		exit(0);
+	}
+}
+/**
+  * _isatty - verif if terminal
+  */
+
+void _isatty(void)
+{
+	if (isatty(STDIN_FILENO))
+		_puts("$ ");
+}
+/**
+ * main - Shell
+ * Return: 0 on success
  */
 
-char *read_line(void)
+int main(void)
 {
-	char *line = NULL;
+	ssize_t len = 0;
+	char *buff = NULL, *value, *pathname, **arv;
 	size_t size = 0;
-	int ret = 0;
+	list_path *head = '\0';
+	void (*f)(char **);
 
-	if (getline(&line, &size, stdin) == -1)
+	signal(SIGINT, sig_handler);
+	while (len != EOF)
 	{
-		free(line);
-		exit(-1);
+		_isatty();
+		len = getline(&buff, &size, stdin);
+		_EOF(len, buff);
+		arv = splitstring(buff, " \n");
+		if (!arv || !arv[0])
+			execute(arv);
+		else
+		{
+			value = _getenv("PATH");
+			head = linkpath(value);
+			pathname = _which(arv[0], head);
+			f = checkbuild(arv);
+			if (f)
+			{
+				free(buff);
+				f(arv);
+			}
+			else if (!pathname)
+				execute(arv);
+			else if (pathname)
+			{
+				free(arv[0]);
+				arv[0] = pathname;
+				execute(arv);
+			}
+		}
 	}
-	ret = strlen(line);
-	line[ret - 1] = '\0';
-
-	return (line);
+	free_list(head);
+	freearv(arv);
+	free(buff);
+	return (0);
 }
